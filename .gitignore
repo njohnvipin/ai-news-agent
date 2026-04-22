@@ -1,4 +1,4 @@
 .env
 __pycache__/
-*.pycagentenv/ 
-agentenv/ 
+*.pyc
+agentenv/
