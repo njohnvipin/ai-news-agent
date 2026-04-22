@@ -21,6 +21,8 @@ def fetch_ai_news():
 @tool
 def send_email_tool(content: str):
     """Send AI insights email"""
+    print("\n🔧 send_email_tool was called!")   # ← add this
+
     final_output = f"""Daily AI Insights
 {'='*50}
 

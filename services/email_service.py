@@ -5,9 +5,10 @@ from config import EMAIL, APP_PASSWORD, RECIPIENTS
 
 
 def send_email(content):
+    print("\n🔧 send_email_tool was called!")   # ← add this
+    print(f"Content length: {len(content)} chars")
     print(f"\nDEBUG — From     : {EMAIL}")
     print(f"DEBUG — To       : {RECIPIENTS}")
-    # print(f"DEBUG — Password : {'SET (' + APP_PASSWORD[:4] + '...)' if APP_PASSWORD else 'NOT SET'}")
 
     try:
         msg = MIMEMultipart()
@@ -24,14 +25,13 @@ def send_email(content):
             print("DEBUG — Login successful, sending...")
             server.send_message(msg)
 
-        print("✅ Email sent successfully")
+        print("Email sent successfully")
 
     except smtplib.SMTPAuthenticationError:
-        print("❌ AUTH FAILED — Wrong App Password")
-        print("   Fix: myaccount.google.com/apppasswords → delete old → create new")
+        print(" AUTH FAILED — Wrong App Password")
 
     except smtplib.SMTPException as e:
-        print(f"❌ SMTP ERROR: {e}")
+        print(f"SMTP ERROR: {e}")
 
     except Exception as e:
-        print(f"❌ ERROR: {type(e).__name__}: {e}")
+        print(f" ERROR: {type(e).__name__}: {e}")

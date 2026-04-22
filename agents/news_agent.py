@@ -39,16 +39,16 @@ Just execute all 3 steps immediately."""
         )
 
     def run(self):
-        print("\n🤖 Agent started\n")
+        print("\n Agent started\n")
 
      
         result = self.agent.invoke(
         {"messages": [("human", "Execute all 3 steps now.")]},
-        config={"callbacks": [], "verbose": True}  # ← add this
+        config={"callbacks": [], "verbose": True} 
     )
 
 
         final_message = result["messages"][-1].content
-        print("\n✅ Agent finished\n")
+        print("\nAgent finished\n")
         print(final_message)
         return result
