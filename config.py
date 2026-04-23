@@ -5,7 +5,7 @@ load_dotenv()
 
 EMAIL        = os.getenv("EMAIL")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
-MODEL_NAME   = os.getenv("MODEL_NAME", "llama3.2:3b")
+MODEL_NAME   = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 RECIPIENTS   = os.getenv("RECIPIENTS", "").split(",")
 
 # catch missing values early
@@ -17,5 +17,5 @@ missing = [k for k, v in {
 
 if missing:
     raise EnvironmentError(
-        f"❌ Missing in .env: {', '.join(missing)}"
+        f" Missing in .env: {', '.join(missing)}"
     )

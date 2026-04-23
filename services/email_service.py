@@ -5,7 +5,6 @@ from config import EMAIL, APP_PASSWORD, RECIPIENTS
 
 
 def send_email(content):
-    print("\n🔧 send_email_tool was called!")   # ← add this
     print(f"Content length: {len(content)} chars")
     print(f"\nDEBUG — From     : {EMAIL}")
     print(f"DEBUG — To       : {RECIPIENTS}")
