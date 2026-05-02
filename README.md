@@ -146,27 +146,6 @@ python app.py
 
 ---
 
-##  Dependencies
-
-```
-langchain
-langchain-core
-langchain-community
-langchain-groq
-langchain-ollama
-langgraph
-python-dotenv
-requests
-feedparser
-```
-
-Install all at once:
-
-```bash
-pip install langchain langchain-core langchain-community langchain-groq langchain-ollama langgraph python-dotenv requests feedparser
-```
-
----
 
 ##  Agent Architecture
 
