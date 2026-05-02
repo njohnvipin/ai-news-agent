@@ -3,34 +3,38 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from config import EMAIL, APP_PASSWORD, RECIPIENTS
 
+SMTP_HOST = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_SUBJECT = "Valence Analytics - Daily AI Insights"
 
-def send_email(content):
-    print(f"Content length: {len(content)} chars")
-    print(f"\nDEBUG — From     : {EMAIL}")
-    print(f"DEBUG — To       : {RECIPIENTS}")
+
+def send_email(content: str) -> bool:
+    """Send email to all recipients. Returns True on success, False on failure."""
+    print(f"\n Sending email to {len(RECIPIENTS)} recipient(s)...")
 
     try:
         msg = MIMEMultipart()
-        msg["Subject"] = "Valence Analytics - Daily AI Insights"
-        msg["From"] = EMAIL
-        msg["To"] = ", ".join(RECIPIENTS)
+        msg["Subject"] = EMAIL_SUBJECT
+        msg["From"]    = EMAIL
+        msg["To"]      = ", ".join(RECIPIENTS)
         msg.attach(MIMEText(content, "plain", "utf-8"))
 
-        print("DEBUG — Connecting to smtp.gmail.com:587...")
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
             server.starttls()
-            print("DEBUG — TLS started, logging in...")
             server.login(EMAIL, APP_PASSWORD)
-            print("DEBUG — Login successful, sending...")
             server.send_message(msg)
 
-        print("Email sent successfully")
+        print(" Email sent successfully")
+        return True
 
     except smtplib.SMTPAuthenticationError:
-        print(" AUTH FAILED — Wrong App Password")
+        print(" Authentication failed — check App Password in .env")
+        return False
 
     except smtplib.SMTPException as e:
-        print(f"SMTP ERROR: {e}")
+        print(f" SMTP error: {e}")
+        return False
 
     except Exception as e:
-        print(f" ERROR: {type(e).__name__}: {e}")
+        print(f" Unexpected error: {type(e).__name__}: {e}")
+        return False

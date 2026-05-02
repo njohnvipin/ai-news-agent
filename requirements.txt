@@ -1,3 +1,4 @@
-requests
-langchain
-langchain-ollama
+langchain==1.2.15
+langchain-groq==1.1.2
+python-dotenv==1.2.2
+requests==2.33.1
