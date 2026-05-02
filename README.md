@@ -79,7 +79,7 @@ email_service.py sends via Gmail SMTP
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/ai-news-agent.git
+git clone https://github.com/njohnvipin/ai-news-agent.git
 cd ai-news-agent
 ```
 
