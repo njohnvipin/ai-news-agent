@@ -100,7 +100,6 @@ source agentenv/bin/activate
 
 ```bash
 pip install -r requirements.txt
-pip freeze > requirements.txt
 
 ```
 
