@@ -5,7 +5,7 @@ load_dotenv()
 
 EMAIL        = os.getenv("EMAIL")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
-MODEL_NAME   = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
+MODEL_NAME   = os.getenv("MODEL_NAME")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 RECIPIENTS   = [r.strip() for r in os.getenv("RECIPIENTS", "").split(",") if r.strip()]
 

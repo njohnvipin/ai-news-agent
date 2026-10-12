@@ -126,7 +126,7 @@ ai-news-agent/
 
 | Layer | Technology |
 |---|---|
-| LLM | Groq (`llama-3.3-70b-versatile`) |
+| LLM | Groq (`openai/gpt-oss-120b`) |
 | Embeddings | SentenceTransformers (`all-MiniLM-L6-v2`) |
 | Vector DB | ChromaDB (persistent, local) |
 | Agent Framework | LangGraph (ReAct agent) |
@@ -136,6 +136,10 @@ ai-news-agent/
 | API | FastAPI + Uvicorn |
 | Email | Gmail SMTP |
 | Language | Python 3.11 |
+
+> 📝 **Why `openai/gpt-oss-120b`?** This project originally used `llama-3.3-70b-versatile`, but Groq deprecated that model and shut it down on **August 16, 2026**. Requests to it now fail with a `404 model_not_found` error. Groq's recommended replacements are `openai/gpt-oss-120b` (Production) and `qwen/qwen3.6-27b` (Preview). We chose `gpt-oss-120b` because Production models are more stable and get a migration path before removal, while Preview models can be pulled at short notice.
+>
+> Despite the name, this model runs entirely on Groq. **No OpenAI account or API key is needed**; your Groq API key is all you need.
 
 ---
 
@@ -184,7 +188,7 @@ cp .env.example .env
 Open `.env` and fill in your values:
 ```
 GROQ_API_KEY=gsk_your_key_here
-MODEL_NAME=llama-3.3-70b-versatile
+MODEL_NAME=openai/gpt-oss-120b
 EMAIL=your_gmail@gmail.com
 APP_PASSWORD=your_16_char_app_password
 RECIPIENTS=you@gmail.com,other@gmail.com
@@ -193,6 +197,8 @@ RECIPIENTS=you@gmail.com,other@gmail.com
 > 💡 **Groq API Key** — free at [console.groq.com](https://console.groq.com)
 >
 > 💡 **Gmail App Password** — Go to: Google Account → Security → 2-Step Verification → App Passwords → create one → paste the 16-character password here
+>
+> 💡 **`MODEL_NAME`** — keep this set to a model Groq currently supports. If Groq retires a model in the future, just update this one line in `.env` and restart the app; no code changes required. Check current models at [console.groq.com/docs/models](https://console.groq.com/docs/models) and retirements at [console.groq.com/docs/deprecations](https://console.groq.com/docs/deprecations).
 
 ### Step 6 — Fix Streamlit warnings (optional but recommended)
 Create a `.streamlit/` folder in the project root and add `config.toml` inside it:
@@ -272,6 +278,12 @@ Query:
 ---
 
 ## ❓ Troubleshooting
+
+**`groq.NotFoundError: Error code: 404 — The model 'llama-3.3-70b-versatile' does not exist`**
+Groq retired this model on August 16, 2026. Fix:
+1. Open `.env` and set `MODEL_NAME=openai/gpt-oss-120b`
+2. Fully stop Streamlit (Ctrl+C) and run `streamlit run streamlit_app.py` again — `.env` is only read at startup, so auto-rerun won't pick up the change
+3. Still failing? Make sure no hardcoded model name remains in `services/rag_service.py` or `agents/news_agent.py`, and that no old `MODEL_NAME` is set as a Windows system environment variable (or use `load_dotenv(override=True)` in `config.py`)
 
 **`ModuleNotFoundError: No module named 'torchvision'`**
 These are warnings from Streamlit's file watcher, not real errors. Create `.streamlit/config.toml` as shown in Step 6 above.
