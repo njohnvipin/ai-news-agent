@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+agentenv/
+.pytest_cache/
+
+# ChromaDB auto-generated storage — never commit this
+chroma_db/
+chromadb/

@@ -1,0 +1,33 @@
+# Upper bounds stop a fresh install from silently pulling a new major
+# version with breaking changes. For an exact snapshot of a working setup,
+# run: pip freeze > requirements-lock.txt
+
+# Core LLM / agent
+langchain>=0.3.0,<2
+langchain-groq>=0.2.0,<2
+langgraph>=0.2.0,<2
+
+# Embeddings
+sentence-transformers>=3.0.0,<6
+
+# Vector store
+# Pinned to 0.6.3: ChromaDB 1.x (new Rust engine) can fail on Windows with
+# "Error creating hnsw segment reader: Nothing found on disk".
+# A chroma_db folder created by 1.x can't be read by 0.6.3: delete it first.
+chromadb==0.6.3
+posthog<6   # newer posthog breaks chromadb 0.6.3's telemetry and floods the log with errors
+
+# News fetching, full-text extraction & config
+feedparser>=6.0.0,<7
+trafilatura>=1.12.0,<3
+requests>=2.33.0,<3
+python-dotenv>=1.0.0,<2
+
+# API & UI
+fastapi>=0.111.0,<1
+uvicorn>=0.30.0,<1
+streamlit>=1.35.0,<2
+pydantic>=2.0.0,<3
+
+# Tests
+pytest>=8.0.0
