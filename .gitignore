@@ -7,3 +7,6 @@ agentenv/
 # ChromaDB auto-generated storage — never commit this
 chroma_db/
 chromadb/
+
+# Agent long-term memory (sent digests) — local data, not code
+data/

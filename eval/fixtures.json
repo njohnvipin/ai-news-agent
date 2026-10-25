@@ -1,0 +1,64 @@
+{
+  "_note": "SYNTHETIC test data. All companies, people, places and events are invented, so results stay comparable over time and no real articles are copied.",
+  "articles": [
+    {
+      "id": "regulation",
+      "title": "Aurelia Commission fines chatbot maker over missing AI labels",
+      "source": "Synthetic Wire",
+      "published": "Mon, 05 Oct 2026 09:00 UTC",
+      "content": "The Aurelia Commission has fined the chatbot company Velora 4 million credits for failing to tell users they were talking to an AI system. Under Aurelia's new transparency rules, any automated assistant that talks to the public must say clearly, at the start of each conversation, that it is not a human. Investigators found that Velora's customer service bot introduced itself with a human name and photo and only disclosed that it was automated when asked directly. The commission said the fine reflects how many people were affected: more than two million conversations over six months. Velora has thirty days to add a visible label and must report back on how it will audit future releases. Consumer groups welcomed the decision, saying hidden chatbots undermine trust. Industry associations warned that unclear guidance could slow down smaller companies that lack legal teams, and asked the commission to publish worked examples of compliant disclosures."
+    },
+    {
+      "id": "chips",
+      "title": "Kestrel Silicon raises funding for low-power inference chips",
+      "source": "Synthetic Wire",
+      "published": "Tue, 06 Oct 2026 10:30 UTC",
+      "content": "Kestrel Silicon, a startup designing chips for running AI models rather than training them, has raised 220 million dollars in a funding round led by long-term infrastructure investors. The company says its accelerator uses about a third of the electricity of general-purpose graphics processors when serving language models, because it keeps model weights in on-chip memory and avoids moving data back and forth. Kestrel plans to use the money to move from test samples to volume production next year and to open an engineering office focused on compiler software, which it calls the hardest part of competing in the chip market. Analysts note that inference now accounts for most of the computing cost of deployed AI products, which is why several startups are targeting it. Skeptics point out that customers are reluctant to switch away from established software ecosystems even when new hardware is cheaper to run."
+    },
+    {
+      "id": "healthcare",
+      "title": "Harbourview Health pauses AI triage tool after bias audit",
+      "source": "Synthetic Wire",
+      "published": "Wed, 07 Oct 2026 14:15 UTC",
+      "content": "Harbourview Health has paused an AI system that helped emergency department nurses decide which patients to see first, after an internal audit found it under-prioritized older patients who described their symptoms in less detail. The tool was trained on several years of past triage decisions, and auditors concluded it had learned patterns from historical records rather than medical need. Nurses always had the final say, and the hospital said no patient was harmed, but it decided to stop using the tool until the problem is fixed. The audit team recommended retraining with outcome data, testing performance separately for each age group, and publishing the results. Harbourview's chief medical officer said the episode showed why AI tools in healthcare need ongoing monitoring after launch, not just testing before it. Patient advocates praised the hospital for disclosing the findings."
+    },
+    {
+      "id": "open_model",
+      "title": "Northwind Labs releases open-weight model under a restrictive license",
+      "source": "Synthetic Wire",
+      "published": "Thu, 08 Oct 2026 08:45 UTC",
+      "content": "Northwind Labs has released the weights of its new language model, Gale-2, allowing anyone to download and run it on their own hardware. The model comes in three sizes and performs close to leading commercial systems on coding and reasoning benchmarks, according to Northwind's own tests, which have not yet been independently confirmed. The license allows research and commercial use but forbids using the model to build competing foundation models and requires companies with more than 50 million monthly users to negotiate a separate agreement. Open-source advocates argued that these conditions mean the release should be called open-weight rather than open source. Developers welcomed the ability to fine-tune the model on private data without sending it to an outside service. Security researchers said they would study whether the model's safety training can be easily removed now that the weights are public."
+    },
+    {
+      "id": "energy",
+      "title": "Ridgeline Data's new AI data center faces water use questions",
+      "source": "Synthetic Wire",
+      "published": "Fri, 09 Oct 2026 16:00 UTC",
+      "content": "Residents near a planned Ridgeline Data campus have asked regional officials to delay approval until the company explains how much water its cooling systems will use during summer heat waves. The facility is designed to host AI training and inference servers and would draw up to 300 megawatts of electricity at full capacity. Ridgeline says it will use a closed-loop cooling design that recycles most of its water and will buy power from a new solar farm, but critics note that the solar farm will not be finished until two years after the data center opens. Local farmers worry about competition for groundwater during droughts. Energy analysts say the dispute reflects a wider pattern: demand for AI computing is growing faster than new clean power can be built, pushing companies to sign long-term contracts with gas plants in the meantime."
+    },
+    {
+      "id": "copyright",
+      "title": "Authors' guild sues over use of novels to train AI models",
+      "source": "Synthetic Wire",
+      "published": "Sat, 10 Oct 2026 11:20 UTC",
+      "content": "The Calder Writers' Guild has filed a lawsuit claiming that an AI company trained its models on thousands of copyrighted novels without permission or payment. The guild says the books were copied from unauthorized online libraries and that the resulting models can produce detailed summaries and imitations of its members' work. The company responded that training on publicly available text is a lawful, transformative use and that its models do not store copies of the books. Legal scholars say the case could clarify whether training counts as copying when the original text cannot be extracted from the model. The guild is asking for damages and for a licensing system that would pay authors whose work is used. Several publishers have started negotiating such licenses directly with AI developers while the courts decide."
+    }
+  ],
+  "questions": [
+    {"question": "Was any company fined for not disclosing that its chatbot was an AI?", "expected": "regulation"},
+    {"question": "What are the new transparency rules for chatbots?", "expected": "regulation"},
+    {"question": "Which startup raised money for AI inference hardware?", "expected": "chips"},
+    {"question": "How do the new chips save electricity?", "expected": "chips"},
+    {"question": "Why did a hospital stop using its AI triage system?", "expected": "healthcare"},
+    {"question": "Was there bias against older patients in an AI tool?", "expected": "healthcare"},
+    {"question": "Which model weights were released, and what does the license allow?", "expected": "open_model"},
+    {"question": "Is the new model open source or only open-weight?", "expected": "open_model"},
+    {"question": "How much water and power will the new AI data center use?", "expected": "energy"},
+    {"question": "Are writers suing AI companies over training on books?", "expected": "copyright"}
+  ],
+  "off_topic": [
+    "What's a good recipe for pasta carbonara?",
+    "Who won the football match last night?",
+    "How do I repot a houseplant?"
+  ]
+}

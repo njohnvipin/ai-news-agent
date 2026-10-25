@@ -1,12 +1,15 @@
 """
 chroma_utils.py — ChromaDB helpers for the AI News Agent.
 
-Provides collection initialisation, duplicate checks and basic statistics
-so the rest of the codebase doesn't need to talk to chromadb directly.
+Provides collection access, duplicate checks and statistics so the rest of
+the codebase doesn't need to talk to chromadb directly. Every function takes
+an optional collection name, so the evaluation script can use its own
+collection without touching your real data.
 """
 import logging
+from collections import Counter
 from pathlib import Path
-from typing import Iterable, Optional, Set
+from typing import Dict, Iterable, Optional, Set
 
 import chromadb
 from chromadb.api.models.Collection import Collection
@@ -37,21 +40,21 @@ def get_client() -> chromadb.ClientAPI:
     return _client
 
 
-def get_collection() -> Collection:
-    """Return the ai_news collection, creating it if it does not exist."""
-    return get_client().get_or_create_collection(name=COLLECTION_NAME)
+def get_collection(name: str = COLLECTION_NAME) -> Collection:
+    """Return the collection, creating it if it does not exist."""
+    return get_client().get_or_create_collection(name=name)
 
 
-def existing_ids(ids: Iterable[str]) -> Set[str]:
+def existing_ids(ids: Iterable[str], collection_name: str = COLLECTION_NAME) -> Set[str]:
     """Return which of the given IDs are already stored (one batched lookup)."""
     ids = list(ids)
     if not ids:
         return set()
-    result = get_collection().get(ids=ids, include=[])
+    result = get_collection(collection_name).get(ids=ids, include=[])
     return set(result["ids"])
 
 
-def distance_to_similarity(distance: float) -> float:
+def distance_to_similarity(distance: float, collection: Optional[Collection] = None) -> float:
     """
     Convert a Chroma distance into cosine similarity (1 = identical, 0 = unrelated).
 
@@ -59,26 +62,34 @@ def distance_to_similarity(distance: float) -> float:
     (squared L2 distance) cosine similarity = 1 - distance / 2.
     For a collection created with the "cosine" space it is 1 - distance.
     """
-    metadata = get_collection().metadata or {}
+    metadata = (collection.metadata if collection is not None else None) or {}
     if metadata.get("hnsw:space") == "cosine":
         return 1.0 - distance
     return 1.0 - distance / 2.0
 
 
-def delete_collection() -> None:
-    """Drop and recreate the collection — a full reset."""
+def delete_collection(name: str = COLLECTION_NAME, recreate: bool = True) -> None:
+    """Drop the collection — a full reset. By default an empty one is created again."""
     client = get_client()
     try:
-        client.delete_collection(name=COLLECTION_NAME)
+        client.delete_collection(name=name)
     except Exception:  # collection may not exist yet
         pass
-    client.get_or_create_collection(name=COLLECTION_NAME)
+    if recreate:
+        client.get_or_create_collection(name=name)
 
 
-def get_collection_stats() -> dict:
+def get_source_counts(name: str = COLLECTION_NAME) -> Dict[str, int]:
+    """Number of stored ARTICLES per publisher, largest first (source diversity)."""
+    result = get_collection(name).get(where={"chunk_index": 0}, include=["metadatas"])
+    counts = Counter((m or {}).get("source") or "Other" for m in result["metadatas"])
+    return dict(counts.most_common())
+
+
+def get_collection_stats(name: str = COLLECTION_NAME) -> dict:
     """Return basic statistics about the stored collection."""
     return {
-        "collection_name": COLLECTION_NAME,
-        "total_chunks": get_collection().count(),
+        "collection_name": name,
+        "total_chunks": get_collection(name).count(),
         "chroma_path": CHROMA_PATH,
     }

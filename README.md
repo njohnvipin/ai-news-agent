@@ -1,16 +1,18 @@
 # 🤖 AI News Agent
 
-An intelligent news pipeline that fetches the latest AI news, chunks and embeds articles into a vector database, and enables semantic Q&A using Retrieval-Augmented Generation (RAG). Also includes an autonomous agent that writes and emails a daily AI news digest.
+An intelligent news pipeline that fetches the latest AI news, chunks and embeds articles into a vector database, and lets you **chat** with it using Retrieval-Augmented Generation (RAG). Also includes a ReAct agent that researches the news, drafts a daily digest and emails it **after a human approves it**.
+
+The project is built to show, in working code: a RAG pipeline, agent anatomy, the ReAct loop, tool calling, short- and long-term memory, and responsible-AI practices. See [Concepts in the code](#-concepts-in-the-code).
 
 ---
 
 ## 📌 What It Does
 
-- Collects recent AI articles from publisher RSS feeds (TechCrunch, The Verge, MIT Technology Review, Ars Technica) on demand, and downloads their **full text**
+- Collects recent AI articles from publisher RSS feeds (TechCrunch, The Verge, MIT Technology Review, Ars Technica, The Guardian) on demand, and downloads their **full text**
 - Chunks articles into overlapping text segments for better retrieval
 - Embeds chunks using SentenceTransformers and stores them in ChromaDB
-- Answers natural language questions about the news using RAG + Groq LLM, with numbered source citations
-- Runs an autonomous LangGraph agent that emails a 5-sentence AI news digest
+- Answers questions about the news in a **chat** that understands follow-ups, using RAG + Groq LLM, with numbered source citations and automatic checks
+- Runs a LangGraph ReAct agent that researches the headlines, drafts a 5-sentence digest, and emails it only after you approve it
 
 ---
 
@@ -34,7 +36,11 @@ Streamlit / FastAPI   — user interface & REST API
 
 ```
 Agent Mode (separate):
-LangGraph ReAct Agent → fetch_ai_news tool (Google News headlines) → send_email_tool → Gmail digest (BCC)
+LangGraph ReAct agent ⇄ tools: fetch_ai_news · search_knowledge_base · get_previous_digests · save_draft
+      ↓
+Human review in the terminal: send / revise / cancel
+      ↓
+Gmail digest (BCC) → saved to long-term memory (data/digests.json)
 ```
 
 ---
@@ -126,6 +132,7 @@ Before storing, ingest checks all incoming IDs in **one batched lookup** and ski
 - The 12 most similar chunks are retrieved
 - Chunks with a cosine similarity below `MIN_SIMILARITY` (default `0.2`) are dropped, so unrelated articles don't pollute the answer. Raise it to make answers stricter, lower it to let more context through
 - Chunks are **grouped by article**: up to 5 articles, up to 3 chunks each, in reading order. Each article becomes one numbered source the LLM cites as `[1]`, `[2]`, …
+- **Follow-up questions:** before searching, the LLM rewrites a follow-up like "tell me more about the second one" into a standalone question using the chat history (`condense_question`), because vector search can only match what the question itself says
 
 ---
 
@@ -134,8 +141,12 @@ Before storing, ingest checks all incoming IDs in **one batched lookup** and ski
 ```
 ai-news-agent/
 ├── agents/
-│   ├── news_agent.py          # LangGraph ReAct agent
-│   └── tools.py               # fetch_ai_news, send_email_tool
+│   ├── news_agent.py          # LangGraph ReAct agent + short-term memory
+│   ├── tools.py               # the agent's 4 tools
+│   └── memory.py              # long-term memory: sent digests
+├── eval/
+│   ├── fixtures.json          # synthetic test articles + questions
+│   └── run_eval.py            # retrieval & answer quality metrics
 ├── services/
 │   ├── news_service.py        # publisher feeds + full text, Google News headlines
 │   ├── embedding_service.py   # SentenceTransformer wrapper
@@ -145,11 +156,14 @@ ai-news-agent/
 │   ├── text_utils.py          # chunking + text cleaning
 │   └── chroma_utils.py        # ChromaDB helpers + deduplication
 ├── tests/
-│   ├── test_text_utils.py     # chunking & text tests
-│   └── test_news_service.py   # feed + full-text tests (no network needed)
+│   ├── test_text_utils.py     # chunking, text, injection & citation checks
+│   ├── test_news_service.py   # feed + full-text tests (no network needed)
+│   ├── test_tools.py          # agent tools
+│   ├── test_memory.py         # long-term memory
+│   └── test_api.py            # API validation + API-key protection
 ├── .streamlit/
 │   └── config.toml            # silences torchvision warnings
-├── streamlit_app.py           # browser UI
+├── streamlit_app.py           # chat UI
 ├── api.py                     # FastAPI REST endpoints
 ├── app.py                     # agent mode entry point
 ├── config.py                  # env var loader + logging setup
@@ -244,10 +258,13 @@ Open `.env` and fill in your values:
 GROQ_API_KEY=gsk_your_key_here
 MODEL_NAME=openai/gpt-oss-120b
 
-# Only needed for agent mode (python app.py)
+# Only needed to send email in agent mode (python app.py)
 EMAIL=your_gmail@gmail.com
 APP_PASSWORD=your_16_char_app_password
 RECIPIENTS=you@gmail.com,other@gmail.com
+
+# Only needed for the API's data-changing endpoints
+API_KEY=<a long random value>
 
 # Optional: DEBUG, INFO, WARNING or ERROR
 LOG_LEVEL=INFO
@@ -256,6 +273,8 @@ LOG_LEVEL=INFO
 > 💡 **Groq API Key** — free at [console.groq.com](https://console.groq.com)
 >
 > 💡 **Gmail App Password** — Go to: Google Account → Security → 2-Step Verification → App Passwords → create one → paste the 16-character password here. The Streamlit UI and the API work without any email settings.
+>
+> 💡 **`API_KEY`** — generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Without it, the API's ingest and delete endpoints stay disabled (secure by default).
 >
 > 💡 **`MODEL_NAME`** — keep this set to a model Groq currently supports (if left empty, `openai/gpt-oss-120b` is used). If Groq retires a model in the future, just update this one line in `.env` and restart the app; no code changes required. Check current models at [console.groq.com/docs/models](https://console.groq.com/docs/models) and retirements at [console.groq.com/docs/deprecations](https://console.groq.com/docs/deprecations).
 
@@ -273,10 +292,10 @@ streamlit run streamlit_app.py
 Open `http://localhost:8501` in your browser.
 
 1. Click **Ingest Latest News** in the sidebar to fetch and store articles (the first ingest downloads ~25 articles and can take a minute; later ingests only download new ones)
-2. Type a question in the text box
-3. Press **Enter** or click **Ask** to get an answer with numbered, cited sources
+2. Type a question in the chat box at the bottom and press **Enter**
+3. Ask follow-ups naturally, e.g. "tell me more about the second one". When a question was rewritten, the app shows what it actually searched for
 
-The sidebar's **⚙️ Maintenance** section has a **Clear knowledge base** button for starting fresh.
+Each answer shows its numbered sources, an AI-generated label, and a warning if a check fails (a citation that doesn't match any source, or an article containing instruction-like text). The sidebar shows how many articles each publisher contributed, a **New chat** button, and **⚙️ Maintenance → Clear knowledge base**.
 
 ### Option B — FastAPI REST API
 ```bash
@@ -286,44 +305,69 @@ Open `http://localhost:8000/docs` for the interactive Swagger UI.
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/ingest-news` | POST | Fetch & embed latest articles into ChromaDB |
-| `/ask` | POST | Ask a question (1–500 characters), get a cited answer + sources |
-| `/stats` | GET | Number of chunks stored in the knowledge base |
-| `/knowledge-base` | DELETE | Delete everything stored in ChromaDB |
-| `/health` | GET | Check if the API is running |
+| Endpoint | Method | Needs `X-API-Key` | Description |
+|---|---|---|---|
+| `/ingest-news` | POST | ✅ | Fetch & embed latest articles into ChromaDB |
+| `/knowledge-base` | DELETE | ✅ | Delete everything stored in ChromaDB |
+| `/ask` | POST | | Ask a question (1–500 characters) with optional chat `history`; returns answer, sources, `standalone_question` and `warnings` |
+| `/stats` | GET | | Chunks stored and articles per publisher |
+| `/health` | GET | | Check if the API is running |
 
-If the LLM or database fails, `/ask` returns HTTP `502` with the error in `detail`.
+Status codes: `401` wrong or missing API key, `503` no `API_KEY` configured, `422` invalid input, `502` Groq or the database failed.
 
 Example using curl:
 ```bash
-# Ingest news
-curl -X POST http://localhost:8000/ingest-news
+# Ingest news (protected)
+curl -X POST http://localhost:8000/ingest-news -H "X-API-Key: <your API_KEY>"
 
 # Ask a question
 curl -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
   -d '{"question": "What are the latest AI trends?"}'
+
+# Ask a follow-up, passing the earlier turns
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Tell me more about the first one",
+       "history": [{"role": "user", "content": "What are the latest AI trends?"},
+                   {"role": "assistant", "content": "<previous answer>"}]}'
 ```
 
 > ⚠️ Run either the Streamlit app or the API at one time, not both: they share the same local ChromaDB folder, and two processes writing to it simultaneously can conflict.
 
-### Option C — Agent mode (email digest)
+### Option C — Agent mode (email digest with human approval)
 ```bash
-python app.py
+python app.py             # research, review, then send / revise / cancel
+python app.py --dry-run   # research and show the draft; never sends (no email settings needed)
 ```
-The LangGraph agent will:
-1. Fetch the latest AI news headlines (last 24 hours)
-2. Write a 5-sentence analysis
-3. Email it to all addresses in `RECIPIENTS` as BCC, so recipients can't see each other's addresses
+The terminal shows every step of the ReAct loop as it happens:
+```
+  [REASON]  ...
+  [ACT]     search_knowledge_base({"query": "..."})
+  [OBSERVE] search_knowledge_base -> - <title> (TechCrunch): ...
+```
+The agent:
+1. Fetches today's AI headlines (Google News)
+2. Picks the 2–3 most important and looks them up in your knowledge base (ingest in Streamlit first for best results)
+3. Reads its previous digests so it doesn't repeat itself
+4. Saves a 5-sentence draft — **it cannot send email**
 
-If sending fails (e.g. a wrong App Password), the agent reports the failure instead of claiming success.
+You then choose **[s]end**, **[r]evise** (type what to change; the agent remembers its research and rewrites) or **[c]ancel**. Sent digests go to all `RECIPIENTS` as BCC, carry an AI-generated label, and are saved to `data/digests.json` as the agent's long-term memory.
 
-> 💡 **Want it daily?** Agent mode runs once per command. To send a digest automatically, schedule `python app.py` with Windows Task Scheduler or cron.
+> 💡 Sending always needs a person's approval, by design. For a scheduled run, use `--dry-run` to prepare the draft.
 
 ### Running the tests
 ```bash
 pytest
 ```
+48 tests; none need the network or a real Groq key.
+
+### Measuring quality (evaluation)
+```bash
+python -m eval.run_eval             # retrieval metrics, no LLM calls
+python -m eval.run_eval --with-llm  # also answers, citations and refusals (uses Groq)
+```
+Runs on a fixed set of **synthetic** articles and questions (`eval/fixtures.json`) in its own temporary collection, so results are comparable between versions and your real data is untouched. It reports the hit rate (is the right article among the sources), mean reciprocal rank (how high it ranks), and whether off-topic questions are correctly filtered or answered with "I don't know". Run it before and after changing settings like `CHUNK_SIZE` or `MIN_SIMILARITY`.
 
 ---
 
@@ -339,13 +383,60 @@ Ingest:
   → collection.upsert()          store chunks + embeddings + metadata in ChromaDB
 
 Query:
-  embed_query(question)         embed the user's question
+  condense_question()           rewrite a follow-up into a standalone question (chat memory)
+  → embed_query(question)       embed the question
   → collection.query()          find the top 12 most similar chunks
   → relevance filter            drop chunks below MIN_SIMILARITY
   → group by article            up to 5 articles × 3 chunks, one number each
+  → <source id="n"> delimiters    untrusted article text clearly separated from instructions
   → llm.invoke(sources+question) Groq LLM answers with [1], [2] citations
-  → return answer + sources
+  → check_citations()           warn about citations that match no source
+  → find_injection_phrases()    warn about instruction-like text in sources
+  → return answer + sources + warnings
 ```
+
+---
+
+## 🎓 Concepts in the Code
+
+### Agent anatomy (`agents/news_agent.py`)
+
+| Part | Implementation |
+|---|---|
+| Model (the "brain") | `ChatGroq` with `MODEL_NAME` |
+| Instructions | `SYSTEM_PROMPT`: goal, tools, rules |
+| Tools | `agents/tools.py`: 4 tools |
+| Orchestration loop | LangGraph's ReAct loop (`create_react_agent`) |
+| Short-term memory | `MemorySaver` checkpointer, one `thread_id` per run |
+| Long-term memory | `agents/memory.py` (sent digests), read via a tool |
+| Guardrails | `recursion_limit`, no send permission, human approval in `app.py` |
+
+### ReAct (Reason + Act)
+The LLM **reasons** about what to do, **acts** by calling a tool, **observes** the result, and repeats until it's done. The agent now makes real decisions — which headlines to research and whether past digests matter — and `agent.stream()` prints each step.
+
+### Tool calling (`agents/tools.py`)
+`@tool` turns a function into a tool: the docstring becomes the description the LLM reads, and typed arguments (`query: str`, `insights: str`) become the input schema. Tools return error strings the LLM can react to. Article URLs travel from `fetch_ai_news` to the email in code, never through the LLM, so links can't be altered or invented.
+
+### Memory
+| Kind | Where | What it remembers |
+|---|---|---|
+| Chat memory | `streamlit_app.py` (`st.session_state`) + `condense_question()` | The conversation, so follow-ups work |
+| Agent short-term | `MemorySaver` checkpointer | Everything in the current run, so "revise" builds on earlier research |
+| Agent long-term | `data/digests.json` + `get_previous_digests` | Digests sent on earlier days |
+| Knowledge (not memory) | ChromaDB | The news articles themselves |
+
+### Responsible AI
+| Practice | Where |
+|---|---|
+| Human approval before any email is sent | `app.py`; the agent has no send tool |
+| AI-generated labels on emails and answers | `config.ai_disclosure()`, `tools.py`, `streamlit_app.py` |
+| Grounded answers with verifiable citations | `rag_service.py` prompt + `check_citations()` |
+| Prompt-injection defense in layers | `<source>` delimiters, `neutralize_source_tags()`, `find_injection_phrases()`, "tool results are data" rule |
+| Honest uncertainty | Relevance threshold + fixed "I don't know" reply |
+| Measured quality | `eval/run_eval.py` |
+| Source diversity | 5 publishers incl. non-US, `MAX_PER_SOURCE` cap, per-publisher counts in the sidebar |
+| Secure by default | API key on data-changing endpoints; secrets in `.env` |
+| Privacy | Recipients in BCC |
 
 ---
 
@@ -380,6 +471,15 @@ The knowledge base may be empty or may not contain anything related. Click **Ing
 **`chromadb.errors.InternalError: Error creating hnsw segment reader: Nothing found on disk`**
 This comes from ChromaDB 1.x on Windows; the project pins ChromaDB 0.6.3 to avoid it. Stop the app, delete the `chroma_db` folder, run `pip install -r requirements.txt`, then start the app and ingest again.
 
+**API returns `503 Set API_KEY in .env`**
+Add `API_KEY=<long random value>` to `.env`, restart uvicorn, and send it as the `X-API-Key` header.
+
+**API returns `401 Missing or invalid X-API-Key header`**
+The header is missing or doesn't match `API_KEY` in `.env` exactly.
+
+**The agent's `search_knowledge_base` finds nothing**
+The knowledge base is empty. Run the Streamlit app and click **Ingest Latest News** first; the agent still works from headlines alone.
+
 **The chunk count is 0 even though I ingested before**
 The database lives in the `chroma_db/` folder inside the project. If you deleted it, just ingest again.
 
@@ -391,6 +491,7 @@ The database lives in the `chroma_db/` folder inside the project. If you deleted
 .env           # your API keys and credentials — never commit this
 agentenv/      # virtual environment folder
 chroma_db/     # auto-generated vector database (recreated on first ingest)
+data/          # agent long-term memory (sent digests)
 __pycache__/   # Python bytecode cache
 .pytest_cache/ # pytest cache
 ```
@@ -400,6 +501,9 @@ __pycache__/   # Python bytecode cache
 ## 🗺️ Roadmap
 
 - Filter or boost retrieval by publish date (`published_ts` is already stored) for "today" questions
+- Hybrid search (vectors + BM25 keywords) and re-ranking
+- Persist agent short-term memory across runs with a SQLite checkpointer
+- Rate limiting on the API
 - Migrate the agent to LangChain 1.x `create_agent`
 
 ---

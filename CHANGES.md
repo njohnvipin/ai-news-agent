@@ -1,5 +1,55 @@
 # Changes
 
+## v1.3.1 — Agent kept searching and never drafted
+
+**Symptom:** `python app.py` ended with `Sorry, need more steps to process this request.` and "The agent did not produce a draft". Nothing was sent.
+
+**Cause:** the knowledge base comes from publisher feeds while the headlines come from Google News, so searches often returned loosely related articles. The model kept re-searching the same topics, hit Groq's rate limit (429, slow retries) and ran out of steps (`RECURSION_LIMIT`) before calling `save_draft`.
+
+| File | Fix |
+|---|---|
+| `agents/tools.py` | At most 3 searches per run, **enforced in code** (the tool answers "Search limit reached… call save_draft"). Agent searches only return articles with similarity ≥ 0.35, and say clearly when nothing matches. Smaller results (2 articles, 500 characters) mean fewer tokens and fewer rate-limit pauses. |
+| `agents/news_agent.py` | Step-by-step prompt: one search per chosen headline, never the same topic twice, results may be related stories rather than the exact headline. |
+| `config.py` | Hides the per-request INFO logs from httpx, Hugging Face and sentence-transformers; their warnings still show. |
+| `tests/test_tools.py` | New test for the search cap (49 tests). |
+
+Lesson: a prompt asks, code enforces. Limits that matter belong in the tool.
+
+---
+
+## v1.3 — Agents, memory and responsible AI
+
+### What changed, file by file
+
+| File | Change | Concept |
+|---|---|---|
+| `agents/news_agent.py` | Rewritten: 4 tools, a looser prompt so the agent decides what to research, `MemorySaver` checkpointer with a `thread_id`, `agent.stream()` printing each Reason → Act → Observe step, `revise()` that reuses the same thread. Recursion limit 20. | Agent anatomy, ReAct, short-term memory |
+| `agents/tools.py` | New tools `search_knowledge_base` (uses the RAG retrieval) and `get_previous_digests`; `send_email_tool` replaced by `save_draft` — the agent can no longer send email. Email body carries an AI-generated label. | Tool calling, human-in-the-loop, disclosure |
+| `agents/memory.py` | **New.** Saves sent digests to `data/digests.json` and reads recent ones. | Long-term memory |
+| `app.py` | Shows the draft and asks **[s]end / [r]evise / [c]ancel**; only a person can send. `--dry-run` never sends. Saves sent digests to long-term memory. Email settings only checked when sending. | Human-in-the-loop |
+| `services/rag_service.py` | `condense_question()` rewrites follow-ups using chat history; `ask_news_rag(question, history)` returns `standalone_question` and `warnings`; sources wrapped in `<source id="n">` tags; citation and injection checks on every answer. `ingest_articles()` split out of `ingest_latest_news()`; every function takes an optional collection name (used by the evaluation). `group_by_article()` is now public. `get_stats()` adds articles per publisher. | Memory, prompt-injection defense, output checks |
+| `utils/text_utils.py` | New `find_injection_phrases()`, `neutralize_source_tags()`, `extract_citations()`, `check_citations()`. | Responsible AI |
+| `utils/chroma_utils.py` | Functions take a collection name; new `get_source_counts()`; `delete_collection(recreate=...)`; `distance_to_similarity()` takes the collection instead of looking it up. | Evaluation, source diversity |
+| `services/news_service.py` | Added The Guardian's AI feed (non-US view); `MAX_PER_SOURCE = 8` stops one publisher from dominating an ingest. | Source diversity |
+| `streamlit_app.py` | Rewritten as a chat (`st.chat_input`, `st.chat_message`) with history in `session_state`; shows "Searched for" when a question was rewritten, warnings, AI-generated label, per-publisher counts, **New chat** button. | Memory, transparency |
+| `api.py` | `X-API-Key` required for `/ingest-news` and `/knowledge-base` (503 if no `API_KEY` set, 401 if wrong); `/ask` accepts `history`. Version 1.3.0. | Security |
+| `config.py` | New `API_KEY`, `DATA_DIR`, `ai_disclosure()`. | |
+| `eval/fixtures.json`, `eval/run_eval.py` | **New.** Synthetic test set and a script reporting hit rate, MRR, off-topic filtering, and (with `--with-llm`) citation validity and honest refusals. | Evaluation |
+| `tests/` | New `conftest.py`, `test_tools.py`, `test_memory.py`, `test_api.py`, and injection/citation tests in `test_text_utils.py`. 48 tests total. | |
+| `requirements.txt` | Added `httpx` (for API tests). | |
+| `.env.example` | Added `API_KEY`. | |
+| `.gitignore` | Added `data/`. | |
+| `README.md` | New "Concepts in the code" section; chat, agent, API and evaluation docs updated. | |
+
+### Behaviour changes to know about
+
+- **Agent mode never sends without you.** `python app.py` now waits for **s**/**r**/**c**. For scheduled runs use `--dry-run`.
+- **The API's ingest and delete endpoints need `API_KEY`** in `.env` and the `X-API-Key` header. `/ask`, `/stats` and `/health` are unchanged.
+- **Follow-up questions cost one extra, small LLM call** (the rewrite). First questions in a chat don't.
+- **Existing `chroma_db/` data keeps working.** No re-ingest needed.
+
+---
+
 ## v1.2.1 — ChromaDB fix for Windows
 
 - `requirements.txt`: pinned `chromadb==0.6.3` and `posthog<6`. ChromaDB 1.x (the new Rust engine) can fail on Windows with `Error creating hnsw segment reader: Nothing found on disk`, especially when the database is reopened by a new process. `posthog<6` stops harmless but noisy telemetry errors from chromadb 0.6.3.

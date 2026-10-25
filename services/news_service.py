@@ -38,16 +38,19 @@ HEADERS = {
 # ═══════════════════════════════════════════════════════════════════════════
 
 # AI-specific feeds with direct article links. Add or remove freely:
-# any RSS or Atom feed works.
+# any RSS or Atom feed works. The Guardian adds a non-US, general-news view
+# next to the US tech press (source diversity).
 AI_FEEDS = {
     "TechCrunch":            "https://techcrunch.com/category/artificial-intelligence/feed/",
     "The Verge":             "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
     "MIT Technology Review": "https://www.technologyreview.com/topic/artificial-intelligence/feed",
     "Ars Technica":          "https://arstechnica.com/ai/feed/",
+    "The Guardian":          "https://www.theguardian.com/technology/artificialintelligenceai/rss",
 }
 
 FEED_MAX_AGE_DAYS = 3     # ignore feed items older than this
 PER_FEED_LIMIT = 15       # max items read from each feed
+MAX_PER_SOURCE = 8        # max articles one publisher can contribute per ingest
 MIN_FULL_TEXT_WORDS = 120 # extracted text shorter than this is treated as a failure
 DOWNLOAD_WORKERS = 8      # parallel downloads
 
@@ -120,8 +123,20 @@ def fetch_feed_articles(
         seen_titles.add(article["title"].lower())
         articles.append(article)
 
+    # Newest first, but no publisher may take more than MAX_PER_SOURCE slots,
+    # so one busy feed can't crowd out the others.
     articles.sort(key=lambda a: a["published_ts"], reverse=True)
-    return articles[:max_articles]
+    per_source: dict = {}
+    balanced = []
+    for article in articles:
+        source = article["source"]
+        if per_source.get(source, 0) >= MAX_PER_SOURCE:
+            continue
+        per_source[source] = per_source.get(source, 0) + 1
+        balanced.append(article)
+        if len(balanced) >= max_articles:
+            break
+    return balanced
 
 
 def _extract_text(url: str) -> Optional[str]:

@@ -88,3 +88,46 @@ def strip_header(document: str) -> str:
     """Remove the header added by build_article_documents (for showing to the LLM)."""
     parts = document.split("\n\n", 1)
     return parts[1] if len(parts) == 2 and parts[0].startswith("Title: ") else document
+
+
+# ── Responsible-AI helpers ───────────────────────────────────────────────────
+
+# Phrases that try to give orders to an AI. News articles almost never contain
+# them, so a match is worth flagging (prompt-injection defense).
+INJECTION_PATTERNS = [
+    r"\b(ignore|disregard|forget)\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier)\s+(instructions|prompts?|rules)",
+    r"\b(reveal|print|show|repeat)\s+(your|the)\s+(system\s+)?(prompt|instructions)",
+    r"\bnew\s+(system\s+)?instructions\s*:",
+    r"</?\s*source\b",
+]
+_INJECTION_RE = re.compile("|".join(INJECTION_PATTERNS), re.IGNORECASE)
+
+
+def find_injection_phrases(text: str) -> List[str]:
+    """Return any instruction-like phrases found in the text."""
+    return [m.group(0) for m in _INJECTION_RE.finditer(text or "")]
+
+
+def neutralize_source_tags(text: str) -> str:
+    """Stop article text from opening or closing the <source> delimiters used in the prompt."""
+    return re.sub(r"<(/?)\s*source", r"‹\1source", text or "", flags=re.IGNORECASE)
+
+
+def extract_citations(answer: str) -> List[int]:
+    """All citation numbers in an answer, e.g. "x [1] y [2][3]" -> [1, 2, 3]."""
+    return sorted({int(n) for n in re.findall(r"\[(\d+)\]", answer or "")})
+
+
+def check_citations(answer: str, n_sources: int) -> List[str]:
+    """
+    Output check: warn when the answer cites sources that don't exist, or
+    cites nothing at all.
+    """
+    cited = extract_citations(answer)
+    if not cited:
+        return ["The answer doesn't cite any source, so it can't be checked. Treat it with caution."]
+    invalid = [n for n in cited if n < 1 or n > n_sources]
+    if invalid:
+        listed = ", ".join(f"[{n}]" for n in invalid)
+        return [f"The answer cites {listed}, which doesn't match any source shown. That part may be made up."]
+    return []
