@@ -4,12 +4,28 @@ ONLY after a human approves it.
 
 Run with:
     python app.py             research, review, then send / revise / cancel
-    python app.py --dry-run   research and show the draft; never sends
+    python app.py --dry-run   research, show the draft and open the designed email
+                              in your browser; never sends
 """
 import argparse
 import sys
+import webbrowser
 
 MAX_REVISIONS = 3
+
+
+def save_preview(html: str):
+    """Write the HTML email to data/preview.html so it can be opened in a browser."""
+    from config import DATA_DIR
+    path = DATA_DIR / "preview.html"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(html, encoding="utf-8")
+    return path
+
+
+def open_preview(path) -> None:
+    if not webbrowser.open(path.resolve().as_uri()):
+        print(f" Couldn't open a browser. Open this file yourself: {path}")
 
 
 def main():
@@ -48,15 +64,22 @@ def main():
             print("\n" + "-" * 50 + "\n DRAFT FOR REVIEW\n" + "-" * 50)
             print(draft["body"])
             print("-" * 50)
+            preview = save_preview(draft["html"])
+            print(f"\n Designed email preview: {preview}")
 
             if args.dry_run:
+                open_preview(preview)
                 print("\n Dry run: nothing was sent.")
                 return
 
-            choice = input("\n[s]end, [r]evise or [c]ancel? ").strip().lower()
+            choice = input("\n[p]review in browser, [s]end, [r]evise or [c]ancel? ").strip().lower()
+
+            while choice == "p":
+                open_preview(preview)
+                choice = input("\n[s]end, [r]evise or [c]ancel? ").strip().lower()
 
             if choice == "s":
-                if send_email(draft["body"]):
+                if send_email(draft["body"], html=draft["html"]):
                     save_digest(draft["insights"], draft["headlines"])
                     print("\n Sent, and saved to the agent's long-term memory.")
                 else:

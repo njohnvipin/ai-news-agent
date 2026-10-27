@@ -21,6 +21,7 @@ from langchain_core.tools import tool
 
 from agents.memory import load_recent_digests
 from config import ai_disclosure
+from services.email_template import build_email_html
 from services.news_service import fetch_ai_articles
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ def build_email_body(article_list: str, insights: str) -> str:
         f"OVERALL INSIGHTS\n{divider}\n\n"
         f"{insights.strip()}\n\n"
         f"{divider}\n"
-        f"{ai_disclosure()} It was reviewed by a person before sending.\n\n"
+        f"{ai_disclosure()}\n\n"
         f"Best regards,\nValence Analytics"
     )
 
@@ -165,6 +166,10 @@ def save_draft(insights: str) -> str:
     _draft = {
         "insights": insights.strip(),
         "body": build_email_body(_format_article_list(_articles_cache), insights),
+        "html": build_email_html(
+            _articles_cache, insights,
+            f"{ai_disclosure()}",
+        ),
         "headlines": [a["title"] for a in _articles_cache],
     }
     return "Draft saved. A human will review it before anything is sent. You are done."

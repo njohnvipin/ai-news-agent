@@ -4,7 +4,10 @@ email_service.py — Sends the digest email through Gmail SMTP.
 import logging
 import smtplib
 from datetime import date
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
+from typing import Optional
 
 from config import EMAIL, APP_PASSWORD, RECIPIENTS, missing_email_settings
 
@@ -16,9 +19,28 @@ SMTP_TIMEOUT = 30  # seconds
 EMAIL_SUBJECT = "Valence Analytics - Daily AI Insights"
 
 
-def send_email(content: str) -> bool:
+def build_message(content: str, html: Optional[str] = None):
+    """
+    Plain text only, or plain text + HTML as "multipart/alternative".
+
+    With both parts, email clients show the HTML version and fall back to the
+    plain text if they can't display HTML (or the reader prefers text).
+    The HTML part must be attached LAST: clients pick the last part they support.
+    """
+    if not html:
+        return MIMEText(content, "plain", "utf-8")
+    msg = MIMEMultipart("alternative")
+    msg.attach(MIMEText(content, "plain", "utf-8"))
+    msg.attach(MIMEText(html, "html", "utf-8"))
+    return msg
+
+
+def send_email(content: str, html: Optional[str] = None) -> bool:
     """
     Send the email to all recipients. Returns True on success, False on failure.
+
+    content: the plain-text version (always sent)
+    html:    optional designed HTML version, shown by most email clients
 
     Recipients are sent as BCC: the visible "To" is the sender's own address,
     so recipients can't see each other's emails.
@@ -28,9 +50,9 @@ def send_email(content: str) -> bool:
         logger.error("Cannot send email: missing in .env: %s", ", ".join(missing))
         return False
 
-    msg = MIMEText(content, "plain", "utf-8")
-    msg["Subject"] = f"{EMAIL_SUBJECT} — {date.today():%b %d, %Y}"
-    msg["From"] = EMAIL
+    msg = build_message(content, html)
+    msg["Subject"] = f"Daily AI Insights · {date.today():%a, %b} {date.today().day}"
+    msg["From"] = formataddr(("Valence Analytics", EMAIL))
     msg["To"] = EMAIL
 
     logger.info("Sending email to %d recipient(s)...", len(RECIPIENTS))
